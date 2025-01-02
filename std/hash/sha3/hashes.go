@@ -15,6 +15,7 @@ func New256(api frontend.API) (hash.BinaryFixedLengthHasher, error) {
 		return nil, err
 	}
 	return &digest{
+		api:       api,
 		uapi:      uapi,
 		state:     newState(),
 		dsbyte:    0x06,

@@ -21,11 +21,11 @@ type testCase struct {
 }
 
 var testCases = map[string]testCase{
-	//"SHA3-256":   {New256, sha3.New256},
-	//"SHA3-384":   {New384, sha3.New384},
-	//"SHA3-512":   {New512, sha3.New512},
+	"SHA3-256":   {New256, sha3.New256},
+	"SHA3-384":   {New384, sha3.New384},
+	"SHA3-512":   {New512, sha3.New512},
 	"Keccak-256": {NewLegacyKeccak256, sha3.NewLegacyKeccak256},
-	//"Keccak-512": {NewLegacyKeccak512, sha3.NewLegacyKeccak512},
+	"Keccak-512": {NewLegacyKeccak512, sha3.NewLegacyKeccak512},
 }
 
 type sha3Circuit struct {
@@ -60,7 +60,7 @@ func (c *sha3Circuit) Define(api frontend.API) error {
 
 func TestSHA3(t *testing.T) {
 	assert := test.NewAssert(t)
-	in := make([]byte, 310)
+	in := make([]byte, 100)
 	_, err := rand.Reader.Read(in)
 	assert.NoError(err)
 
@@ -102,19 +102,6 @@ func (c *sha3FixedLengthSumCircuit) Define(api frontend.API) error {
 	if !ok {
 		return fmt.Errorf("hash function unknown: %s", c.hasher)
 	}
-	api.Println(uint8sToVaribles(c.Expected)...)
-
-	{
-		h, err := newHasher.zk(api)
-		if err != nil {
-			return err
-		}
-
-		h.Write(c.In)
-		res := h.Sum()
-		api.Println(uint8sToVaribles(res)...)
-	}
-
 	h, err := newHasher.zk(api)
 	if err != nil {
 		return err
@@ -125,7 +112,6 @@ func (c *sha3FixedLengthSumCircuit) Define(api frontend.API) error {
 	}
 	h.Write(c.In)
 	res := h.FixedLengthSum(c.Length)
-	api.Println(uint8sToVaribles(res)...)
 
 	for i := range c.Expected {
 		uapi.ByteAssertEq(c.Expected[i], res[i])
@@ -134,36 +120,36 @@ func (c *sha3FixedLengthSumCircuit) Define(api frontend.API) error {
 }
 
 func TestSHA3FixedLengthSum(t *testing.T) {
-	//assert := test.NewAssert(t)
-	in := make([]byte, 137)
-	//_, err := rand.Reader.Read(in)
-	//assert.NoError(err)
+	assert := test.NewAssert(t)
+	in := make([]byte, 310)
+	_, err := rand.Reader.Read(in)
+	assert.NoError(err)
 
 	for name := range testCases {
-		//assert.Run(func(assert *test.Assert) {
-		name := name
-		strategy := testCases[name]
-		h := strategy.native()
-		h.Write(in)
-		expected := h.Sum(nil)
+		assert.Run(func(assert *test.Assert) {
+			name := name
+			strategy := testCases[name]
+			h := strategy.native()
+			length := len(in) - 10
+			h.Write(in[:length])
+			expected := h.Sum(nil)
 
-		circuit := &sha3FixedLengthSumCircuit{
-			In:       make([]uints.U8, len(in)),
-			Expected: make([]uints.U8, len(expected)),
-			Length:   0,
-			hasher:   name,
-		}
+			circuit := &sha3FixedLengthSumCircuit{
+				In:       make([]uints.U8, len(in)),
+				Expected: make([]uints.U8, len(expected)),
+				Length:   0,
+				hasher:   name,
+			}
 
-		witness := &sha3FixedLengthSumCircuit{
-			In:       uints.NewU8Array(in),
-			Expected: uints.NewU8Array(expected),
-			Length:   len(in),
-		}
+			witness := &sha3FixedLengthSumCircuit{
+				In:       uints.NewU8Array(in),
+				Expected: uints.NewU8Array(expected),
+				Length:   length,
+			}
 
-		if err := test.IsSolved(circuit, witness, ecc.BN254.ScalarField()); err != nil {
-			t.Fatalf("%s: %s", name, err)
-		}
-		//}, name)
-		break
+			if err := test.IsSolved(circuit, witness, ecc.BN254.ScalarField()); err != nil {
+				t.Fatalf("%s: %s", name, err)
+			}
+		}, name)
 	}
 }

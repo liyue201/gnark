@@ -32,33 +32,21 @@ func (d *digest) Reset() {
 func (d *digest) Sum() []uints.U8 {
 	padded := d.padding()
 
-	d.api.Println(uint8sToVaribles(padded)...)
-
 	blocks := d.composeBlocks(padded)
 	d.absorbing(blocks)
-
-	for j := 0; j < 25; j++ {
-		//d.api.Println(uint8sToVaribles(d.state[j][:])...)
-	}
-
 	return d.squeezeBlocks()
 }
 
 func (d *digest) FixedLengthSum(length frontend.Variable) []uints.U8 {
 
+	// padding
 	padded := make([]uints.U8, len(d.in))
 	copy(padded[:], d.in[:])
 	padded = append(padded, uints.NewU8Array(make([]uint8, d.rate))...)
 	numberOfBlocks := frontend.Variable(0)
 
-	//d.api.Println(length)
-
-	//d.api.Println(len(padded))
-
 	for i := 0; i < len(padded)-d.rate; i++ {
 		reachEnd := cmp.IsEqual(d.api, i+1, length)
-		//d.api.Println(reachEnd)
-
 		switch q := d.rate - ((i + 1) % d.rate); q {
 		case 1:
 			padded[i+1].Val = d.api.Select(reachEnd, d.dsbyte^0x80, padded[i+1].Val)
@@ -76,11 +64,11 @@ func (d *digest) FixedLengthSum(length frontend.Variable) []uints.U8 {
 			numberOfBlocks = d.api.Select(reachEnd, (i+1+q)/d.rate, numberOfBlocks)
 		}
 	}
-	d.api.Println(uint8sToVaribles(padded)...)
 
-	//d.api.Println(totalLen)
+	// compose blocks
 	blocks := d.composeBlocks(padded)
 
+	// absorbing
 	var state [25]uints.U64
 	var resultState [25]uints.U64
 	copy(resultState[:], d.state[:])
@@ -88,17 +76,12 @@ func (d *digest) FixedLengthSum(length frontend.Variable) []uints.U8 {
 
 	comparator := cmp.NewBoundedComparator(d.api, big.NewInt(int64(len(blocks))), false)
 
-	d.api.Println(numberOfBlocks)
-	d.api.Println(len(blocks))
-
 	for i, block := range blocks {
 		for j := range block {
 			state[j] = d.uapi.Xor(state[j], block[j])
 		}
 		state = keccakf.Permute(d.uapi, state)
-
 		isInRange := comparator.IsLess(i, numberOfBlocks)
-
 		for j := 0; j < 25; j++ {
 			for k := 0; k < 8; k++ {
 				resultState[j][k].Val = d.api.Select(isInRange, state[j][k].Val, resultState[j][k].Val)
@@ -107,6 +90,7 @@ func (d *digest) FixedLengthSum(length frontend.Variable) []uints.U8 {
 	}
 	copy(d.state[:], resultState[:])
 
+	// squeeze blocks
 	return d.squeezeBlocks()
 }
 
@@ -166,12 +150,4 @@ func newState() (state [25]uints.U64) {
 		state[i] = uints.NewU64(0)
 	}
 	return
-}
-
-func uint8sToVaribles(in []uints.U8) []frontend.Variable {
-	res := make([]frontend.Variable, len(in))
-	for i := 0; i < len(in); i++ {
-		res[i] = in[i].Val
-	}
-	return res
 }
