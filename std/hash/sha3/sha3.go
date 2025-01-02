@@ -38,6 +38,7 @@ func (d *digest) Sum() []uints.U8 {
 }
 
 func (d *digest) FixedLengthSum(length frontend.Variable) []uints.U8 {
+
 	// padding
 	padded := make([]uints.U8, len(d.in))
 	copy(padded[:], d.in[:])
